@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections;
 
-public class TrafficLightController : MonoBehaviour
+public class TrafficLight4 : MonoBehaviour
 {
     public Renderer redLight;
     public Renderer yellowLight;
@@ -15,7 +15,7 @@ public class TrafficLightController : MonoBehaviour
     public float greenTime = 6f;
     public float yellowTime = 2f;
 
-    public float startDelay = 0f; 
+    public float startDelay = 8f; 
 
     public enum LightState { Red, Yellow, Green }
     public LightState currentState;

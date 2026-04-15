@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections;
 
-public class TrafficLightController : MonoBehaviour
+public class TrafficLight3 : MonoBehaviour
 {
     public Renderer redLight;
     public Renderer yellowLight;
