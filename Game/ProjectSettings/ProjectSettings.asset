@@ -659,7 +659,8 @@ PlayerSettings:
   webGLWebAssemblyBigInt: 0
   webGLCloseOnQuit: 0
   webWasm2023: 0
-  scriptingDefineSymbols: {}
+  scriptingDefineSymbols:
+    Standalone: TOOLBOX_FORCE_DEFAULT_LISTS
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend:

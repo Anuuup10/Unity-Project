@@ -12,13 +12,15 @@ public class CarController : MonoBehaviour
     [Header("Traffic System")]
     public TrafficLightController[] trafficLights;
     public Transform[] stopPoints;
-
     public float stopDistance = 5f;
 
     private bool shouldStop = false;
+    private bool isCrashed = false;
 
     void Update()
     {
+        if (isCrashed) return;
+
         CheckTrafficLights();
 
         if (!shouldStop)
@@ -35,14 +37,11 @@ public class CarController : MonoBehaviour
 
         Vector3 direction = (target.position - transform.position).normalized;
 
-        // Move
         transform.position += direction * speed * Time.deltaTime;
 
-        // Rotate smoothly
         Quaternion lookRotation = Quaternion.LookRotation(direction);
         transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, rotationSpeed * Time.deltaTime);
 
-        // Switch waypoint
         if (Vector3.Distance(transform.position, target.position) < 1f)
         {
             currentIndex = (currentIndex + 1) % waypoints.Length;
@@ -69,5 +68,41 @@ public class CarController : MonoBehaviour
                 }
             }
         }
+    }
+
+    // 💥 ACCIDENT DETECTION
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (isCrashed) return;
+
+        if (collision.gameObject.CompareTag("Player"))
+        {
+            Debug.Log("ACCIDENT OCCURRED!");
+
+            TriggerAccident(collision.gameObject);
+        }
+    }
+
+    void TriggerAccident(GameObject player)
+    {
+        isCrashed = true;
+        speed = 0f;
+
+        // Stop player movement (CharacterController case)
+        CharacterController cc = player.GetComponent<CharacterController>();
+        if (cc != null)
+        {
+            cc.enabled = false;
+        }
+
+        // Stop Rigidbody movement (if used)
+        Rigidbody rb = player.GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+
+        Debug.Log("Player has been hit by car!");
     }
 }
