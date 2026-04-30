@@ -70,16 +70,17 @@ public class CarController : MonoBehaviour
         }
     }
 
-    // 💥 ACCIDENT DETECTION
-    private void OnCollisionEnter(Collision collision)
+    void OnCollisionEnter(Collision collision)
     {
-        if (isCrashed) return;
-
         if (collision.gameObject.CompareTag("Player"))
         {
-            Debug.Log("ACCIDENT OCCURRED!");
+            PlayerHealth player = collision.gameObject.GetComponent<PlayerHealth>();
 
-            TriggerAccident(collision.gameObject);
+            if (player != null)
+            {
+                player.TakeDamage(100); // full damage (instant death)
+                TriggerAccident(collision.gameObject);
+            }
         }
     }
 
@@ -87,6 +88,13 @@ public class CarController : MonoBehaviour
     {
         isCrashed = true;
         speed = 0f;
+
+        Rigidbody carRigidbody = GetComponent<Rigidbody>();
+        if (carRigidbody != null)
+        {
+            carRigidbody.linearVelocity = Vector3.zero;
+            carRigidbody.angularVelocity = Vector3.zero;
+        }
 
         // Stop player movement (CharacterController case)
         CharacterController cc = player.GetComponent<CharacterController>();
