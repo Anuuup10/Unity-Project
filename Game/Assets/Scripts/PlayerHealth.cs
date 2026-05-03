@@ -14,6 +14,7 @@ public class PlayerHealth : MonoBehaviour
     public Slider healthBar;
 
     private bool isDead = false;
+    public bool IsDead => isDead;
 
     private ThirdPersonController playerController;
     private StarterAssetsInputs starterAssetsInputs;

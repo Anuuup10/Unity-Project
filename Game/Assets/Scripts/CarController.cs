@@ -34,15 +34,23 @@ public class CarController : MonoBehaviour
         if (waypoints.Length == 0) return;
 
         Transform target = waypoints[currentIndex];
+        Vector3 targetPosition = new Vector3(target.position.x, transform.position.y, target.position.z);
+        Vector3 directionToTarget = targetPosition - transform.position;
 
-        Vector3 direction = (target.position - transform.position).normalized;
+        if (directionToTarget.sqrMagnitude < 0.01f)
+        {
+            currentIndex = (currentIndex + 1) % waypoints.Length;
+            return;
+        }
+
+        Vector3 direction = directionToTarget.normalized;
 
         transform.position += direction * speed * Time.deltaTime;
 
         Quaternion lookRotation = Quaternion.LookRotation(direction);
         transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, rotationSpeed * Time.deltaTime);
 
-        if (Vector3.Distance(transform.position, target.position) < 1f)
+        if (Vector3.Distance(transform.position, targetPosition) < 1f)
         {
             currentIndex = (currentIndex + 1) % waypoints.Length;
         }
@@ -52,7 +60,9 @@ public class CarController : MonoBehaviour
     {
         shouldStop = false;
 
-        for (int i = 0; i < trafficLights.Length; i++)
+        int lightCount = Mathf.Min(trafficLights.Length, stopPoints.Length);
+
+        for (int i = 0; i < lightCount; i++)
         {
             if (trafficLights[i] == null || stopPoints[i] == null) continue;
 
