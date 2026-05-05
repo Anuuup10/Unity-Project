@@ -11,6 +11,15 @@ public class GameManager : MonoBehaviour
     [SerializeField] private int safeCrossingScore = 100;
     [SerializeField] private string gameTitle = "Safe Steps";
 
+    [Header("Day And Night Cycle")]
+    [SerializeField] private bool dayNightCycle = true;
+    [SerializeField] private float cycleDuration = 90f;
+    [SerializeField] private float dayLightIntensity = 1.1f;
+    [SerializeField] private float nightLightIntensity = 0.18f;
+    [SerializeField] private Color dayLightColor = new Color(1f, 0.95f, 0.82f);
+    [SerializeField] private Color nightLightColor = new Color(0.45f, 0.55f, 1f);
+    [SerializeField] private Color dayAmbientColor = new Color(0.58f, 0.62f, 0.68f);
+    [SerializeField] private Color nightAmbientColor = new Color(0.08f, 0.1f, 0.16f);
     [Header("Optional UI")]
     [SerializeField] private TMP_Text scoreText;
     [SerializeField] private TMP_Text statusText;
@@ -24,6 +33,8 @@ public class GameManager : MonoBehaviour
     private Vector3 startPosition;
     private bool gameStarted;
     private int score;
+    private Light cycleLight;
+    private float cycleTime = 0.25f;
 
     private void Start()
     {
@@ -34,11 +45,17 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
-        if (!gameStarted || player == null || (playerHealth != null && playerHealth.IsDead))
+        if (!gameStarted || player == null)
         {
             return;
         }
 
+        if (playerHealth != null && playerHealth.IsDead)
+        {
+            return;
+        }
+
+        UpdateDayNightCycle();
         UpdateLightHint();
         UpdateProgressScore();
     }
@@ -63,6 +80,7 @@ public class GameManager : MonoBehaviour
         }
 
         nearestTrafficLight = FindFirstObjectByType<TrafficLightController>();
+        cycleLight = FindCycleLight();
     }
 
     private void UpdateProgressScore()
@@ -119,6 +137,59 @@ public class GameManager : MonoBehaviour
         {
             statusText.text = message;
         }
+    }
+
+    private void UpdateDayNightCycle()
+    {
+        if (!dayNightCycle)
+        {
+            return;
+        }
+
+        if (cycleLight == null)
+        {
+            cycleLight = FindCycleLight();
+
+            if (cycleLight == null)
+            {
+                return;
+            }
+        }
+
+        cycleTime = (cycleTime + Time.deltaTime / Mathf.Max(1f, cycleDuration)) % 1f;
+
+        float sunAngle = (cycleTime * 360f) - 90f;
+        cycleLight.transform.rotation = Quaternion.Euler(sunAngle, -30f, 0f);
+
+        float dayAmount = Mathf.Clamp01(Mathf.Sin(cycleTime * Mathf.PI));
+        cycleLight.intensity = Mathf.Lerp(nightLightIntensity, dayLightIntensity, dayAmount);
+        cycleLight.color = Color.Lerp(nightLightColor, dayLightColor, dayAmount);
+
+        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+        RenderSettings.ambientLight = Color.Lerp(nightAmbientColor, dayAmbientColor, dayAmount);
+        RenderSettings.sun = cycleLight;
+    }
+
+    private Light FindCycleLight()
+    {
+        Light activeSun = RenderSettings.sun;
+
+        if (activeSun != null)
+        {
+            return activeSun;
+        }
+
+        Light[] lights = FindObjectsByType<Light>(FindObjectsSortMode.None);
+
+        foreach (Light sceneLight in lights)
+        {
+            if (sceneLight.type == LightType.Directional)
+            {
+                return sceneLight;
+            }
+        }
+
+        return null;
     }
 
     private void CreateHudIfNeeded()
