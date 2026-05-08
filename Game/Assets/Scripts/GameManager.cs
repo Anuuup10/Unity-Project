@@ -13,7 +13,7 @@ public class GameManager : MonoBehaviour
 
     [Header("Day And Night Cycle")]
     [SerializeField] private bool dayNightCycle = true;
-    [SerializeField] private float cycleDuration = 90f;
+    [SerializeField] private float cycleDuration = 480f;
     [SerializeField] private float dayLightIntensity = 1.1f;
     [SerializeField] private float nightLightIntensity = 0.18f;
     [SerializeField] private Color dayLightColor = new Color(1f, 0.95f, 0.82f);
@@ -26,15 +26,26 @@ public class GameManager : MonoBehaviour
     [SerializeField] private TMP_Text lightText;
     [SerializeField] private GameObject hudPanel;
     [SerializeField] private GameObject startPanel;
+    [SerializeField] private GameObject objectivePanel;
+    [SerializeField] private GameObject milestonePanel;
+    [SerializeField] private TMP_Text milestoneText;
 
     private Transform player;
     private PlayerHealth playerHealth;
     private TrafficLightController nearestTrafficLight;
     private Vector3 startPosition;
     private bool gameStarted;
+    private bool milestoneShowing;
+    private bool gameComplete;
     private int score;
+    private int nextStepMilestone = 100;
+    private float totalStepDistance;
+    private Vector3 lastStepPosition;
+    private bool hasStepPosition;
     private Light cycleLight;
     private float cycleTime = 0.25f;
+    private string heldStatusMessage;
+    private float heldStatusUntil;
 
     private void Start()
     {
@@ -58,6 +69,8 @@ public class GameManager : MonoBehaviour
         UpdateDayNightCycle();
         UpdateLightHint();
         UpdateProgressScore();
+        UpdateRoadWarning();
+        CheckStepMilestone();
     }
 
     private void FindSceneReferences()
@@ -85,12 +98,25 @@ public class GameManager : MonoBehaviour
 
     private void UpdateProgressScore()
     {
-        float progress = Mathf.Clamp01(Vector3.Distance(startPosition, player.position) / distanceToWin);
-        score = Mathf.RoundToInt(progress * safeCrossingScore);
+        Vector3 currentPosition = player.position;
+
+        if (!hasStepPosition)
+        {
+            lastStepPosition = currentPosition;
+            hasStepPosition = true;
+        }
+
+        Vector3 movement = currentPosition - lastStepPosition;
+        movement.y = 0f;
+        totalStepDistance += movement.magnitude;
+        lastStepPosition = currentPosition;
+
+        float stepsPerUnit = safeCrossingScore / Mathf.Max(1f, distanceToWin);
+        score = Mathf.FloorToInt(totalStepDistance * stepsPerUnit);
 
         if (scoreText != null)
         {
-            scoreText.text = $"Score: {score}";
+            scoreText.text = $"Steps: {score}";
         }
     }
 
@@ -104,35 +130,105 @@ public class GameManager : MonoBehaviour
         switch (nearestTrafficLight.currentState)
         {
             case TrafficLightController.LightState.Green:
-                lightText.text = "Pedestrian Signal: CROSS";
+                lightText.text = "Signal: CROSS";
                 lightText.color = new Color(0.25f, 0.9f, 0.35f);
                 SetStatus("Green signal. Cross carefully and keep watching cars.");
                 break;
             case TrafficLightController.LightState.Yellow:
-                lightText.text = "Pedestrian Signal: WAIT";
+                lightText.text = "Signal: WAIT";
                 lightText.color = new Color(1f, 0.8f, 0.25f);
                 SetStatus("Yellow signal. Stop and wait for the next safe crossing.");
                 break;
             default:
-                lightText.text = "Pedestrian Signal: WAIT";
+                lightText.text = "Signal: WAIT";
                 lightText.color = new Color(1f, 0.3f, 0.3f);
                 SetStatus("Red signal. Stay on the footpath.");
                 break;
         }
     }
 
-    private void UpdateHud(string message)
+    private void UpdateRoadWarning()
     {
-        SetStatus(message);
-
-        if (scoreText != null)
+        if (nearestTrafficLight == null || player == null)
         {
-            scoreText.text = $"Score: {score}";
+            return;
         }
+
+        float distanceFromStart = Vector3.Distance(startPosition, player.position);
+        bool shouldWait = nearestTrafficLight.currentState != TrafficLightController.LightState.Green;
+
+        if (shouldWait && distanceFromStart > 4f)
+        {
+            SetStatus("Stop! Wait for the green signal before crossing.");
+        }
+    }
+
+    private void CheckStepMilestone()
+    {
+        if (milestoneShowing || gameComplete || score < nextStepMilestone)
+        {
+            return;
+        }
+
+        milestoneShowing = true;
+        gameStarted = false;
+        gameComplete = nextStepMilestone >= 500;
+
+        if (milestoneText != null)
+        {
+            milestoneText.text = gameComplete
+                ? "Congratulation\nYou Won"
+                : $"Congratulations!\nYou completed {nextStepMilestone} steps safely.";
+        }
+
+        Button milestoneButton = milestonePanel != null ? milestonePanel.GetComponentInChildren<Button>(true) : null;
+        TMP_Text milestoneButtonText = milestoneButton != null ? milestoneButton.GetComponentInChildren<TMP_Text>(true) : null;
+
+        if (milestoneButtonText != null)
+        {
+            milestoneButtonText.text = gameComplete ? "Play Again" : "Continue";
+        }
+
+        if (milestoneButton != null)
+        {
+            milestoneButton.onClick.RemoveAllListeners();
+            milestoneButton.onClick.AddListener(gameComplete ? RestartGame : ContinueGame);
+        }
+
+        if (milestonePanel != null)
+        {
+            milestonePanel.SetActive(true);
+        }
+
+        Time.timeScale = 0f;
+        UnlockCursor();
     }
 
     private void SetStatus(string message)
     {
+        if (!string.IsNullOrEmpty(heldStatusMessage) && Time.time < heldStatusUntil)
+        {
+            if (statusText != null)
+            {
+                statusText.text = heldStatusMessage;
+            }
+
+            return;
+        }
+
+        heldStatusMessage = null;
+
+        if (statusText != null)
+        {
+            statusText.text = message;
+        }
+    }
+
+    private void HoldStatus(string message, float duration)
+    {
+        heldStatusMessage = message;
+        heldStatusUntil = Time.time + duration;
+
         if (statusText != null)
         {
             statusText.text = message;
@@ -194,32 +290,46 @@ public class GameManager : MonoBehaviour
 
     private void CreateHudIfNeeded()
     {
-        if (scoreText != null && statusText != null && lightText != null && hudPanel != null && startPanel != null)
+        if (scoreText != null && statusText != null && lightText != null && hudPanel != null && startPanel != null && objectivePanel != null && milestonePanel != null && milestoneText != null)
         {
             return;
         }
 
         Canvas canvas = FindOrCreateOverlayCanvas();
 
-        RectTransform hudRoot = CreatePanel(canvas.transform, "SafetyHud", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -24f), new Vector2(430f, 120f));
+        RectTransform hudRoot = CreatePanel(canvas.transform, "SafetyHud", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(36f, -36f), new Vector2(420f, 150f));
         hudPanel = hudRoot.gameObject;
-        hudRoot.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.55f);
+        hudRoot.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.78f);
 
-        TMP_Text titleText = CreateText(hudRoot, "TitleText", gameTitle, 22, FontStyles.Bold, new Vector2(18f, -12f), new Vector2(380f, 28f));
+        TMP_Text titleText = CreateText(hudRoot, "TitleText", gameTitle, 46, FontStyles.Bold, new Vector2(32f, -20f), new Vector2(360f, 58f));
         titleText.color = Color.white;
 
-        scoreText = CreateText(hudRoot, "ScoreText", "Score: 0", 16, FontStyles.Bold, new Vector2(18f, -42f), new Vector2(160f, 24f));
-        lightText = CreateText(hudRoot, "LightText", "Signal: WAIT", 16, FontStyles.Bold, new Vector2(18f, -66f), new Vector2(360f, 24f));
-        statusText = CreateText(hudRoot, "StatusText", "", 14, FontStyles.Normal, new Vector2(18f, -90f), new Vector2(390f, 24f));
+        scoreText = CreateText(hudRoot, "ScoreText", "Steps: 0", 42, FontStyles.Bold, new Vector2(32f, -86f), new Vector2(340f, 54f));
+        lightText = CreateText(hudRoot, "LightText", "", 1, FontStyles.Normal, Vector2.zero, Vector2.zero);
+        statusText = CreateText(hudRoot, "StatusText", "", 1, FontStyles.Normal, Vector2.zero, Vector2.zero);
+        lightText.gameObject.SetActive(false);
+        statusText.gameObject.SetActive(false);
 
-        startPanel = CreatePanel(canvas.transform, "StartPanel", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(680f, 340f)).gameObject;
-        startPanel.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.82f);
-        TMP_Text startTitle = CreateText(startPanel.transform, "StartTitle", gameTitle, 40, FontStyles.Bold, new Vector2(60f, -42f), new Vector2(560f, 56f));
+        startPanel = CreatePanel(canvas.transform, "StartPanel", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1420f, 780f)).gameObject;
+        startPanel.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.9f);
+        TMP_Text startTitle = CreateText(startPanel.transform, "StartTitle", gameTitle, 104, FontStyles.Bold, new Vector2(100f, -70f), new Vector2(1220f, 130f));
         startTitle.alignment = TextAlignmentOptions.Center;
-        TMP_Text startMessage = CreateText(startPanel.transform, "StartMessage", "Cross the road safely.\nWait for the pedestrian signal, stay on the footpath on red, and cross carefully on green.", 22, FontStyles.Normal, new Vector2(70f, -118f), new Vector2(540f, 110f));
+        TMP_Text startMessage = CreateText(startPanel.transform, "StartMessage", "Follow Traffic rules.\nCross the road safely.\nTo win complete 500 steps.", 54, FontStyles.Normal, new Vector2(140f, -240f), new Vector2(1140f, 170f));
         startMessage.alignment = TextAlignmentOptions.Center;
-        CreateButton(startPanel.transform, "PlayButton", "Play", new Vector2(240f, -250f), new Vector2(200f, 56f), StartGame);
+        CreateButton(startPanel.transform, "PlayButton", "Play", new Vector2(520f, -610f), new Vector2(380f, 110f), StartGame);
 
+        objectivePanel = CreatePanel(canvas.transform, "ObjectivePanel", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -50f), new Vector2(1280f, 130f)).gameObject;
+        objectivePanel.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.82f);
+        TMP_Text objectiveText = CreateText(objectivePanel.transform, "ObjectiveText", "Objective: Cross safely to the other side.", 46, FontStyles.Bold, new Vector2(40f, -28f), new Vector2(1200f, 72f));
+        objectiveText.alignment = TextAlignmentOptions.Center;
+        objectivePanel.SetActive(false);
+
+        milestonePanel = CreatePanel(canvas.transform, "MilestonePanel", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1320f, 560f)).gameObject;
+        milestonePanel.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.92f);
+        milestoneText = CreateText(milestonePanel.transform, "MilestoneText", "Congratulations!\nYou completed 100 steps safely.", 72, FontStyles.Bold, new Vector2(100f, -90f), new Vector2(1120f, 210f));
+        milestoneText.alignment = TextAlignmentOptions.Center;
+        CreateButton(milestonePanel.transform, "ContinueButton", "Continue", new Vector2(470f, -390f), new Vector2(380f, 110f), ContinueGame);
+        milestonePanel.SetActive(false);
     }
 
     private void ShowStartPopup()
@@ -237,11 +347,26 @@ public class GameManager : MonoBehaviour
         {
             startPanel.SetActive(true);
         }
+
+        if (objectivePanel != null)
+        {
+            objectivePanel.SetActive(false);
+        }
+
+        if (milestonePanel != null)
+        {
+            milestonePanel.SetActive(false);
+        }
     }
 
     public void StartGame()
     {
         gameStarted = true;
+        milestoneShowing = false;
+        gameComplete = false;
+        nextStepMilestone = 100;
+        totalStepDistance = 0f;
+        hasStepPosition = false;
         Time.timeScale = 1f;
 
         if (startPanel != null)
@@ -251,7 +376,14 @@ public class GameManager : MonoBehaviour
 
         if (hudPanel != null)
         {
-            hudPanel.SetActive(false);
+            hudPanel.SetActive(true);
+        }
+
+        if (objectivePanel != null)
+        {
+            objectivePanel.SetActive(true);
+            CancelInvoke(nameof(HideObjectivePanel));
+            Invoke(nameof(HideObjectivePanel), 4f);
         }
 
         StarterAssetsInputs inputs = FindFirstObjectByType<StarterAssetsInputs>();
@@ -343,7 +475,7 @@ public class GameManager : MonoBehaviour
         Button button = buttonObject.GetComponent<Button>();
         button.onClick.AddListener(onClick);
 
-        TMP_Text buttonText = CreateText(buttonObject.transform, "Label", label, 22, FontStyles.Bold, Vector2.zero, size);
+        TMP_Text buttonText = CreateText(buttonObject.transform, "Label", label, 48, FontStyles.Bold, Vector2.zero, size);
         buttonText.alignment = TextAlignmentOptions.Center;
         buttonText.rectTransform.anchorMin = Vector2.zero;
         buttonText.rectTransform.anchorMax = Vector2.one;
@@ -354,12 +486,47 @@ public class GameManager : MonoBehaviour
 
     public void RestartGame()
     {
-        Debug.Log("Restart clicked");
-
         Time.timeScale = 1f;
         UnlockCursor();
 
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    public void ContinueGame()
+    {
+        nextStepMilestone += 100;
+        milestoneShowing = false;
+        gameStarted = true;
+        hasStepPosition = false;
+        Time.timeScale = 1f;
+
+        if (milestonePanel != null)
+        {
+            milestonePanel.SetActive(false);
+        }
+
+        StarterAssetsInputs inputs = FindFirstObjectByType<StarterAssetsInputs>();
+        if (inputs != null)
+        {
+            inputs.cursorLocked = true;
+            inputs.cursorInputForLook = true;
+        }
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
+    public void MarkZebraCrossingUsed()
+    {
+        HoldStatus("Good job. You are using the zebra crossing.", 2f);
+    }
+
+    private void HideObjectivePanel()
+    {
+        if (objectivePanel != null)
+        {
+            objectivePanel.SetActive(false);
+        }
     }
 
     private void UnlockCursor()

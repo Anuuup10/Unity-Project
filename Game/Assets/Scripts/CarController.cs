@@ -88,7 +88,15 @@ public class CarController : MonoBehaviour
 
             if (player != null)
             {
-                player.TakeDamage(100); // full damage (instant death)
+                Vector3 impactDirection = collision.transform.position - transform.position;
+                impactDirection.y = 0f;
+
+                if (impactDirection.sqrMagnitude < 0.01f)
+                {
+                    impactDirection = transform.forward;
+                }
+
+                player.TakeHit(100, impactDirection.normalized, Mathf.Max(1f, speed / 5f));
                 TriggerAccident(collision.gameObject);
             }
         }
@@ -106,21 +114,17 @@ public class CarController : MonoBehaviour
             carRigidbody.angularVelocity = Vector3.zero;
         }
 
-        // Stop player movement (CharacterController case)
         CharacterController cc = player.GetComponent<CharacterController>();
         if (cc != null)
         {
             cc.enabled = false;
         }
 
-        // Stop Rigidbody movement (if used)
         Rigidbody rb = player.GetComponent<Rigidbody>();
         if (rb != null)
         {
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
         }
-
-        Debug.Log("Player has been hit by car!");
     }
 }
