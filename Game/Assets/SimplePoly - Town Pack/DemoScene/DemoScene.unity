@@ -8108,6 +8108,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHealth: 100
   fallDuration: 0.5
+  throwDistance: 4
+  throwHeight: 1.4
+  throwSpinAngle: 130
   youDiedUI: {fileID: 1481742036}
   restartButton: {fileID: 83172185}
   healthBar: {fileID: 0}
@@ -42359,6 +42362,9 @@ MonoBehaviour:
   lightText: {fileID: 0}
   hudPanel: {fileID: 0}
   startPanel: {fileID: 0}
+  objectivePanel: {fileID: 0}
+  milestonePanel: {fileID: 0}
+  milestoneText: {fileID: 0}
 --- !u!4 &1914187481
 Transform:
   m_ObjectHideFlags: 0

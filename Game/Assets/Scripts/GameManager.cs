@@ -69,7 +69,6 @@ public class GameManager : MonoBehaviour
         UpdateDayNightCycle();
         UpdateLightHint();
         UpdateProgressScore();
-        UpdateRoadWarning();
         CheckStepMilestone();
     }
 
@@ -144,22 +143,6 @@ public class GameManager : MonoBehaviour
                 lightText.color = new Color(1f, 0.3f, 0.3f);
                 SetStatus("Red signal. Stay on the footpath.");
                 break;
-        }
-    }
-
-    private void UpdateRoadWarning()
-    {
-        if (nearestTrafficLight == null || player == null)
-        {
-            return;
-        }
-
-        float distanceFromStart = Vector3.Distance(startPosition, player.position);
-        bool shouldWait = nearestTrafficLight.currentState != TrafficLightController.LightState.Green;
-
-        if (shouldWait && distanceFromStart > 4f)
-        {
-            SetStatus("Stop! Wait for the green signal before crossing.");
         }
     }
 
@@ -514,11 +497,6 @@ public class GameManager : MonoBehaviour
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
-    }
-
-    public void MarkZebraCrossingUsed()
-    {
-        HoldStatus("Good job. You are using the zebra crossing.", 2f);
     }
 
     private void HideObjectivePanel()
