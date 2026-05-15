@@ -309,7 +309,7 @@ public class GameManager : MonoBehaviour
 
         milestonePanel = CreatePanel(canvas.transform, "MilestonePanel", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1320f, 560f)).gameObject;
         milestonePanel.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.92f);
-        milestoneText = CreateText(milestonePanel.transform, "MilestoneText", "Congratulations!\nYou completed 100 steps safely.", 72, FontStyles.Bold, new Vector2(100f, -90f), new Vector2(1120f, 210f));
+        milestoneText = CreateText(milestonePanel.transform, "MilestoneText", "You completed 100 steps safely.", 72, FontStyles.Bold, new Vector2(100f, -90f), new Vector2(1120f, 210f));
         milestoneText.alignment = TextAlignmentOptions.Center;
         CreateButton(milestonePanel.transform, "ContinueButton", "Continue", new Vector2(470f, -390f), new Vector2(380f, 110f), ContinueGame);
         milestonePanel.SetActive(false);
@@ -513,3 +513,4 @@ public class GameManager : MonoBehaviour
         Cursor.visible = true;
     }
 }
+
